@@ -1,22 +1,34 @@
 # __init__.py
-# Make sure ComfyUI imports our nodes on startup.
+# Ensure ComfyUI imports our custom nodes on startup
 
-from .egregora_tile_split_merge import (
-    EgregoraImageTileSplit,
-    EgregoraLatentTileSplit,
-    EgregoraVAEDecodeFromTiles,
-)
+# Safe imports (works whether loaded as package or loose .py files)
+try:
+    from .egregora_tile_split_merge import (
+        EgregoraImageTileSplit,
+        EgregoraLatentTileSplit,
+        EgregoraVAEDecodeFromTiles,
+    )
+    from .egregora_tiled_regional_prompt import (
+        EgregoraTiledRegionalPrompt,
+    )
+except ImportError:
+    from egregora_tile_split_merge import (
+        EgregoraImageTileSplit,
+        EgregoraLatentTileSplit,
+        EgregoraVAEDecodeFromTiles,
+    )
+    from egregora_tiled_regional_prompt import (
+        EgregoraTiledRegionalPrompt,
+    )
 
-# Optional: only needed if you want the prompt builder in the same repo
-from .egregora_tiled_regional_prompt import (
-    EgregoraTiledRegionalPrompt,
-)
-
-# Helpful metadata (not required by ComfyUI)
+# Optional: metadata for ComfyUI Manager (not required, but helpful)
 __all__ = [
     "EgregoraImageTileSplit",
     "EgregoraLatentTileSplit",
     "EgregoraVAEDecodeFromTiles",
     "EgregoraTiledRegionalPrompt",
 ]
-__version__ = "0.1.0"
+
+__version__ = "0.1.1"
+__author__ = "Your Name or Team"
+__description__ = "Custom tiled split/merge and regional prompt nodes for ComfyUI"
