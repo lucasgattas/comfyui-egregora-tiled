@@ -34,7 +34,7 @@
 ### 2. Manual Installation  
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/<you>/comfyui-egregora-tiled.git
+[git clone https://github.com/<you>/comfyui-egregora-tiled.git]
 # restart ComfyUI
 ````
 
