@@ -1,42 +1,48 @@
-# comfyui-egregora-tiled  
+# comfyui-egregora-tiled
 
-✨ **Tiled regional prompting + tiled VAE decode with seam-free blending for ComfyUI**  
-
----
-
-## 🚀 Features  
-
-### 🔹 Image/Latent Split  
-- Flexible grid with overlap.  
-- Supports spiral or row-major order.  
-
-### 🔹 VAE Decode From Tiles  
-- Decodes each latent tile and blends in pixel space using a distance-to-edge smoothstep window.  
-- Disables taper on outer edges (**no black border**).  
-- Normalizes weights exactly for clean seams.  
-
-### 🔹 Tiled Regional Prompt  
-- Per-tile positive/negative prompts.  
-- Supports global text, blacklist words, and combine modes (prepend/append/replace).  
-
-> ✅ Works with **SDXL (f=4)** and **SD1/2 (f=8)** automatically.  
-> ✅ No external dependencies.  
+✨ **Tiled regional prompting + model-level tiled diffusion for ComfyUI**
 
 ---
 
-## 📦 Installation  
+## 🚀 Features
 
-### 1. Via ComfyUI Manager (recommended)  
-1. Open **ComfyUI → Manager**.  
-2. Select **Install from URL** and paste this repo URL.  
-3. Click **Install** and then **Reload ComfyUI**.  
+### 🔹 Image Tile Split
 
-### 2. Manual Installation  
+* Flexible grid with overlap (row-major or spiral ordering).
+* Emits a shared `grid_json` used by the other nodes so everything stays in sync.&#x20;
+
+### 🔹 Tiled Regional Prompt
+
+* Per-tile positive/negative prompts from lists or text.
+* Global text (prepend/append/replace), blacklist filtering, and CLIP-encode caching.
+* Validates and snaps each region to the latent grid to avoid off-by-one artifacts.&#x20;
+
+### 🔹 Egregora Magick Diffusion (Model)
+
+* Wraps your model with tiled diffusion (Mixture/Multi/Spot Diffusion).
+* Accepts the same `grid_json` (wildcard input) and auto-overrides tile sizes/overlap so your prompt regions and tiling match.
+* Falls back gracefully if the external tiled module isn’t present.&#x20;
+
+> ✅ Works with **SDXL (f=4)** and **SD1/2 (f=8)** automatically (via scale/latent alignment).&#x20;
+> ✅ No extra pip installs.
+
+---
+
+## 📦 Installation
+
+### 1) Via ComfyUI Manager (recommended)
+
+1. Open **ComfyUI → Manager**.
+2. Select **Install from URL** and paste this repo URL.
+3. Click **Install** and then **Reload ComfyUI**.
+
+### 2) Manual Installation
+
 ```bash
 cd ComfyUI/custom_nodes
 git clone https://github.com/lucasgattas/comfyui-egregora-tiled.git
 # restart ComfyUI
-````
+```
 
 ---
 
@@ -44,58 +50,71 @@ git clone https://github.com/lucasgattas/comfyui-egregora-tiled.git
 
 ### 🖼️ Image Tile Split (Egregora)
 
-Splits an **IMAGE** `(B,H,W,C)` into tiles with overlap.
-Returns a concatenated batch + `grid_json`.
+Splits an **IMAGE** `(B,H,W,C)` into overlapping tiles and returns:
 
-### 🌀 Latent Tile Split (Egregora)
+* **tiles\_batch**: concatenated tiles
+* **grid\_json**: grid metadata for downstream nodes&#x20;
 
-Splits a **LATENT** `{'samples': (B,C,H_l,W_l)}` according to `grid_json`.
-Uses edge-replicate padding to keep all tiles equal and preserve border context.
-
-### 🎨 VAE Decode From Tiles (Egregora)
-
-Grid-guided tiled VAE decode with seam-free blending:
-
-* Distance-to-edge smoothstep window per tile.
-* No outer border taper.
-* Exact normalization by accumulated weights.
-* `feather=0` → uses overlap from split (recommended).
-* Set `feather` manually to override.
+---
 
 ### ✍️ Tiled Regional Prompt (Egregora)
 
-Generates per-tile conditioning from multi-line or comma-separated lists.
+Builds per-tile **CONDITIONING** (positive & negative) from lists or text.
 Supports:
 
-* `global_positive`
-* `global_negative`
+* `global_positive`, `global_negative`
 * `blacklist_words`
-* `combine_mode`
+* `combine_mode`: `prepend | append | replace`
+* CLIP text-encode cache for speed
+* Optional bounds validation/snap to latent grid&#x20;
+
+**Inputs:** `clip`, `grid_json` (wildcard), `prompt_list` (wildcard)
+**Outputs:** `positive`, `negative`
+
+---
+
+### 🧪 Egregora Magick Diffusion (Model)
+
+Model patcher that enables tiled diffusion and keeps tile sizing in lockstep with your grid.
+
+* Methods: **Mixture of Diffusers**, **MultiDiffusion**, **SpotDiffusion**
+* Reads `grid_json` (wildcard) and overrides `tile_width`, `tile_height`, `tile_overlap` automatically
+* `tile_batch_size` to batch UNet calls when VRAM allows&#x20;
+
+**Input:** `model` (+ optional `grid_json`)
+**Output:** `model` (tiled-enabled)
 
 ---
 
 ## ⚡ Quick Start
 
-1. Resize input to target size (e.g., `1024×1536`).
-2. **Image Tile Split:** `tile_w=512`, `tile_h=512`, `overlap=128`.
-3. **Tiled Regional Prompt →** connect to sampler with same `grid_json`.
-4. **Latent Tile Split** (optional, depends on your graph).
-5. **Sampler** (per-tile or with regional conditioning).
-6. **VAE Decode From Tiles:** input latents\_list + grid\_json + VAE.
-7. Preview your result.
+1. **Resize** your input to the target resolution.
+2. **Image Tile Split** → set `tile_w`, `tile_h`, `overlap` (e.g., `512/512/96–128`).
+3. **Tiled Regional Prompt** → connect the same `grid_json` and your `clip`; fill `prompt_list` (multi-line or comma-separated).
+4. **Egregora Magick Diffusion (Model)** → connect the same `grid_json` so tile sizes/overlap match your prompt regions.
+5. **Sampler** → use the patched model and the conditioning from the regional prompt.
+6. **VAE Decode** → decode as usual (no special tiled decoder needed with this setup).&#x20;
 
 ---
 
-## 💡 Tips (SDXL + ControlNet)
+## 💡 Tips
 
-* Overlap **96–128 px** works well.
-* Decode once via **VAE Decode From Tiles** (avoid per-tile decode).
-* If seams persist, increase overlap or feather.
+* Larger tiles + smaller overlap = faster; more overlap = smoother seams (tune for your model).
+* Reuse identical phrases across tiles to benefit from CLIP encode caching.
+* Increase `tile_batch_size` if VRAM allows to amortize UNet overhead.&#x20;
 
 ---
 
 ## ✅ Compatibility
 
 * ComfyUI latest stable.
-* Tested with **SDXL / SD1.5**.
-* No extra pip installs.
+* Tested with **SDXL** and **SD1.5**.
+* No additional Python packages required.&#x20;
+
+---
+
+## 🗺️ What Changed (compared to earlier versions)
+
+* Removed legacy **Latent Tile Split** and **VAE Decode From Tiles** sections from the workflow.
+* Added the renamed **Egregora Magick Diffusion (Model)** node and streamlined the 3-node pipeline:
+  **Image Tile Split → Tiled Regional Prompt → Egregora Magick Diffusion (Model)**.
