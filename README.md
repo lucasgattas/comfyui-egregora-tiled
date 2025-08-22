@@ -1,6 +1,6 @@
 # comfyui-egregora-tiled
 
-✨ **Tiled regional prompting + model-level tiled diffusion for ComfyUI**
+✨ **Tiled Regional Prompting + Model-level Tiled Diffusion for ComfyUI**
 
 ---
 
