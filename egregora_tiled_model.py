@@ -89,29 +89,46 @@ class EgregoraTiledDiffusionModel:
     def VALIDATE_INPUTS(cls, input_types):
         return True
 
+    # Prefer the official Tiled Diffusion node if installed
     def _apply_via_td(self, model, method, tile_width, tile_height, tile_overlap, tile_batch_size):
-        from tiled_diffusion import TiledDiffusion
+        try:
+            from tiled_diffusion import TiledDiffusion
+        except Exception:
+            return None  # module not available -> let caller handle fallback
         (patched_model,) = TiledDiffusion().apply(
             model, method, tile_width, tile_height, tile_overlap, tile_batch_size
         )
         return patched_model
 
+    # Fallback that mirrors the original inline wrapper WHEN the module exists;
+    # otherwise return the base model unchanged (quietly).
     def _apply_inline(self, model: ModelPatcher, method, tile_width, tile_height, tile_overlap, tile_batch_size):
-        from tiled_diffusion import MixtureOfDiffusers, MultiDiffusion, SpotDiffusion
+        try:
+            from tiled_diffusion import MixtureOfDiffusers, MultiDiffusion, SpotDiffusion
+        except Exception:
+            # tiled_diffusion not installed → keep base model unchanged
+            return model
+
         compression = 4 if "CASCADE" in str(getattr(getattr(model, "model", None), "model_type", "")).upper() else 8
         tw_px, th_px, ov_px = _snap_sizes(tile_width, tile_height, tile_overlap, compression)
 
-        impl = MixtureOfDiffusers() if method == "Mixture of Diffusers" else (MultiDiffusion() if method == "MultiDiffusion" else SpotDiffusion())
+        if method == "MultiDiffusion":
+            impl = MultiDiffusion()
+        elif method == "SpotDiffusion":
+            impl = SpotDiffusion()
+        else:
+            impl = MixtureOfDiffusers()
+
         impl.tile_width = tw_px // compression
         impl.tile_height = th_px // compression
         impl.tile_overlap = ov_px // compression
         impl.tile_batch_size = int(tile_batch_size)
         impl.compression = compression
 
-        model = model.clone()
-        model.set_model_unet_function_wrapper(impl)
-        model.model_options["tiled_diffusion"] = True
-        return model
+        m = model.clone()
+        m.set_model_unet_function_wrapper(impl)
+        m.model_options["tiled_diffusion"] = True
+        return m
 
     def apply(self, model, method, tile_width, tile_height, tile_overlap, tile_batch_size, grid_json=None):
         grid = _to_dict(grid_json)
@@ -122,16 +139,13 @@ class EgregoraTiledDiffusionModel:
             if th_g is not None:  tile_height = int(th_g) * s
             if ov_g is not None:  tile_overlap = int(ov_g) * s
 
-        try:
-            patched = self._apply_via_td(model, method, tile_width, tile_height, tile_overlap, tile_batch_size)
+        # try official module
+        patched = self._apply_via_td(model, method, tile_width, tile_height, tile_overlap, tile_batch_size)
+        if patched is not None:
             return (patched,)
-        except Exception:
-            try:
-                patched = self._apply_inline(model, method, tile_width, tile_height, tile_overlap, tile_batch_size)
-                return (patched,)
-            except Exception as ee:
-                print(f"[EgregoraTiledDiffusionModel] fallback failed, returning base model. Error: {ee}")
-                return (model,)
+
+        # inline wrapper (if module exists) or base model unchanged
+        return (self._apply_inline(model, method, tile_width, tile_height, tile_overlap, tile_batch_size),)
 
 
 NODE_CLASS_MAPPINGS = {
