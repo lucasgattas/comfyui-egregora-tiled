@@ -2,44 +2,40 @@
 # Package entrypoint for ComfyUI custom nodes.
 # Exposes NODE_CLASS_MAPPINGS and NODE_DISPLAY_NAME_MAPPINGS.
 
-# Import classes robustly (works whether imported as a package or loose files)
+# ---- Robust imports (relative or flat) ----
 try:
-    from .egregora_tile_split_merge import (
+    # New consolidated helpers
+    from .egregora_core_tiling import (
         EgregoraImageTileSplit,
-        EgregoraLatentTileSplit,
-        EgregoraVAEDecodeFromTiles,
+        EgregoraTiledRegionalPrompt,
     )
 except Exception:
-    from egregora_tile_split_merge import (
+    from egregora_core_tiling import (
         EgregoraImageTileSplit,
-        EgregoraLatentTileSplit,
-        EgregoraVAEDecodeFromTiles,
+        EgregoraTiledRegionalPrompt,
     )
 
 try:
-    from .egregora_tiled_regional_prompt import (
-        EgregoraTiledRegionalPrompt,
-    )
+    # Model wrapper (renamed display name → "Egregora Magick Diffusion (Model)")
+    from .egregora_tiled_model import EgregoraTiledDiffusionModel
 except Exception:
-    from egregora_tiled_regional_prompt import (
-        EgregoraTiledRegionalPrompt,
-    )
+    from egregora_tiled_model import EgregoraTiledDiffusionModel
+
 
 # ---- Required by ComfyUI ----
 NODE_CLASS_MAPPINGS = {
     "EgregoraImageTileSplit": EgregoraImageTileSplit,
-    "EgregoraLatentTileSplit": EgregoraLatentTileSplit,
-    "EgregoraVAEDecodeFromTiles": EgregoraVAEDecodeFromTiles,
     "EgregoraTiledRegionalPrompt": EgregoraTiledRegionalPrompt,
+    "EgregoraTiledDiffusionModel": EgregoraTiledDiffusionModel,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "EgregoraImageTileSplit": "Image Tile Split (Egregora)",
-    "EgregoraLatentTileSplit": "Latent Tile Split (Egregora)",
-    "EgregoraVAEDecodeFromTiles": "VAE Decode From Tiles (Egregora)",
     "EgregoraTiledRegionalPrompt": "Tiled Regional Prompt (Egregora)",
+    # Display name reflects the rename you wanted
+    "EgregoraTiledDiffusionModel": "Egregora Magick Diffusion (Model)",
 }
 
 # Optional metadata
 __all__ = list(NODE_CLASS_MAPPINGS.keys())
-__version__ = "0.1.2"
+__version__ = "0.2.0"
